@@ -18,58 +18,73 @@ class Entity:
         self.y = y
         self.screen = screen
         self.font = font
-
+        self.motion = [0.0, 0.0]  # 初始化瞬时移动速度为0
+    
     def draw(self, screen:Surface):
+        # 更新坐标
+        self.x += self.motion[0]
+        self.y += self.motion[1]
+        
+        # 绘制实体
         screen.blit(self.image, (self.x, self.y))
-
-class Role(Entity):
-    step = 0.03
-    def __init__(self, image:Surface, x:float, y:float,screen:Surface, font:Font):
-        super().__init__(image, x, y,screen, font)
-        self.vx, self.vy = 0, 0 # 速度
-        self.ax, self.ay = 0, 0 # 加速度
     
     def drawPosition(self):
-        drawText(self.screen, self.font,self.x + self.image.get_width() // 2, self.y + 20, f"Current position: ({self.x}, {self.y})")
+        drawText(self.screen, self.font, self.x + self.image.get_width() // 2, self.y + 20, f"Current position: ({self.x}, {self.y})")
         
+    def applyFriction(self, friction:float):
+        # 乘以摩擦系数以逐渐减小瞬时移动速度
+        self.motion[0] *= friction
+        self.motion[1] *= friction
+        # 当瞬时移动速度到一定小时归零，以避免出现微小的移动
+        if abs(self.motion[0]) < 0.1:
+            self.motion[0] = 0.0
+        if abs(self.motion[1]) < 0.1:
+            self.motion[1] = 0.0
 
-    def updatePosition(self, keys, step, screenWidth, screenHeight):
+
+class Role(Entity):
+    step = 0.5
+    def __init__(self, image:Surface, x:float, y:float,screen:Surface, font:Font):
+        super().__init__(image, x, y,screen, font)
+    
+    def updatePosition(self, keys, screenWidth, screenHeight):
         # 计算加速度
-        self.ax, self.ay = 0, 0
+        ax, ay = 0, 0
         if keys[pygame.K_w] and self.y > 0:
-            self.ay = -self.step
+            ay = -self.step
         if keys[pygame.K_s] and self.y < screenHeight - self.image.get_height():
-            self.ay = self.step
+            ay = self.step
         if keys[pygame.K_a] and self.x > 0:
-            self.ax = -self.step
+            ax = -self.step
         if keys[pygame.K_d] and self.x < screenWidth - self.image.get_width():
-            self.ax = self.step
+            ax = self.step
         
-        # 计算速度和位置
-        self.vx += self.ax
-        self.vy += self.ay
-        new_x = self.x + self.vx
-        new_y = self.y + self.vy
+        # 更新实体的瞬时移动速度
+        self.motion[0] += ax
+        self.motion[1] += ay
         
         # 检查角色是否会跑出屏幕
-        if new_x < 0:
-            new_x = 0
-            self.vx = 0
-        elif new_x > screenWidth - self.image.get_width():
-            new_x = screenWidth - self.image.get_width()
-            self.vx = 0
-        if new_y < 0:
-            new_y = 0
-            self.vy = 0
-        elif new_y > screenHeight - self.image.get_height():
-            new_y = screenHeight - self.image.get_height()
-            self.vy = 0
+        if self.x + self.motion[0] < 0:
+            self.motion[0] = -self.motion[0]
+            self.x = 0
+        elif self.x + self.motion[0] > screenWidth - self.image.get_width():
+            self.motion[0] = -self.motion[0]
+            self.x = screenWidth - self.image.get_width()
+        else:
+            self.x += self.motion[0]
         
-        self.x, self.y = new_x, new_y
+        if self.y + self.motion[1] < 0:
+            self.motion[1] = -self.motion[1]
+            self.y = 0
+        elif self.y + self.motion[1] > screenHeight - self.image.get_height():
+            self.motion[1] = -self.motion[1]
+            self.y = screenHeight - self.image.get_height()
+        else:
+            self.y += self.motion[1]
         
-        # 加入摩擦力，让速度逐渐减小
-        self.vx *= 0.99
-        self.vy *= 0.99
+        # 应用摩擦力
+        self.applyFriction(0.99)
+
 
 # 实体列表类
 class EntityList:
